@@ -1,138 +1,396 @@
-# 🧠 Go-RAG-System (Retrieval Augmented Generation)
+# 🧠 Go-RAG-System
+### Production-Grade Retrieval Augmented Generation Architecture in Golang
 
-Welcome to the **Go-RAG-System**. This repository contains a complete architecture for building a Retrieval-Augmented Generation (RAG) system utilizing **Golang**, **PostgreSQL (with pgvector)**, **OpenAI Embeddings**, and **Tool Calling**.
+[![Go](https://img.shields.io/badge/Go-1.22+-00ADD8?logo=go&logoColor=white)](https://go.dev)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-pgvector-336791?logo=postgresql&logoColor=white)](https://github.com/pgvector/pgvector)
+[![OpenAI](https://img.shields.io/badge/OpenAI-Embeddings-412991?logo=openai&logoColor=white)](https://platform.openai.com)
+[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![Status](https://img.shields.io/badge/Status-Active%20Development-brightgreen)]()
 
-This architecture combines the reasoning power of Large Language Models (LLMs) with real-time data retrieval from your own knowledge base to generate accurate, highly contextual, and actionable responses without fine-tuning.
+---
+
+## 🧬 Project Overview
+
+The **Go-RAG-System** is a complete, production-ready implementation of a **Retrieval-Augmented Generation (RAG)** pipeline, written entirely in **Go**. It combines the raw retrieval power of a **PostgreSQL + pgvector** vector database with the language generation capabilities of **OpenAI GPT-4o** and an advanced **17-pattern Agentic Architecture**.
+
+Unlike toy implementations, this system is designed to handle real-world complexity:
+- It doesn't just generate text — it **reasons, plans, executes tools, and self-corrects**.
+- It doesn't just store data — it indexes, retrieves, and augments with **semantic similarity search** using 1536-dimensional embeddings.
+- It doesn't just run one AI call — it orchestrates **multi-agent pipelines** with full observability, security authorization, and human approval gates.
 
 ---
 
 ## 🏗️ System Architecture
 
-The workflow consists of 6 core phases:
+The RAG workflow runs through **6 distinct phases** before a response is returned:
 
-1.  **User Query:** The user asks a question or issues a command.
-2.  **Query Embedding:** The system converts the text query into a high-dimensional vector using an embedding model (e.g., `text-embedding-3-small`).
-3.  **Vector DB Retrieval:** A similarity search (Cosine Distance / HNSW) is executed against a PostgreSQL database running the `pgvector` extension to fetch the `Top K` most relevant document chunks.
-4.  **Augmentation:** The retrieved textual context is merged with the original query to construct an enriched prompt.
-5.  **LLM Generation:** The language model (e.g., GPT-4o) processes the augmented prompt to formulate a precise answer.
-6.  **Tool Calling (If needed):** If the LLM determines it needs real-time, external data (e.g., Web Search, DB Lookup, API calls), it triggers a tool execution and feeds the result back into the generation loop.
+```
+ User Query
+     │
+     ▼
+┌─────────────────────────────────────┐
+│  Phase 1: Embedding                 │
+│  text-embedding-3-small (1536d)     │
+└─────────────────┬───────────────────┘
+                  │
+                  ▼
+┌─────────────────────────────────────┐
+│  Phase 2: Vector DB Retrieval       │
+│  PostgreSQL + pgvector              │
+│  IVFFlat Cosine Similarity Search   │
+│  → Returns Top K Document Chunks    │
+└─────────────────┬───────────────────┘
+                  │
+                  ▼
+┌─────────────────────────────────────┐
+│  Phase 3: Prompt Augmentation       │
+│  Retrieved chunks + Original query  │
+│  → Enriched context prompt          │
+└─────────────────┬───────────────────┘
+                  │
+                  ▼
+┌─────────────────────────────────────┐
+│  Phase 4: LLM Generation            │
+│  GPT-4o processes enriched prompt   │
+│  → Generates precise answer         │
+└─────────────────┬───────────────────┘
+                  │
+                  ▼
+┌─────────────────────────────────────┐
+│  Phase 5: Tool Calling (if needed)  │
+│  LLM triggers Web Search / DB Query │
+│  → External data fetched & merged   │
+└─────────────────┬───────────────────┘
+                  │
+                  ▼
+┌─────────────────────────────────────┐
+│  Phase 6: Agentic Post-Processing   │
+│  Observability → Evaluation         │
+│  → Reflection → Final Response      │
+└─────────────────────────────────────┘
+```
 
 ---
 
 ## 🗄️ Database Schema (PostgreSQL + pgvector)
 
-Before running the application, ensure your PostgreSQL instance has `pgvector` installed and execute the following SQL:
+Before running the application, ensure your PostgreSQL instance has `pgvector` installed and execute the following initialization SQL:
 
 ```sql
--- Enable pgvector extension
+-- Step 1: Enable the pgvector extension
 CREATE EXTENSION IF NOT EXISTS vector;
 
--- Create documents table to store chunks and embeddings
+-- Step 2: Create the documents table to store text chunks and their embeddings
 CREATE TABLE documents (
-    id SERIAL PRIMARY KEY,
-    content TEXT NOT NULL,
-    embedding VECTOR(1536), -- 1536 dimensions for text-embedding-3-small
-    metadata JSONB,
-    created_at TIMESTAMP DEFAULT NOW()
+    id          SERIAL PRIMARY KEY,
+    content     TEXT NOT NULL,
+    embedding   VECTOR(1536),       -- 1536 dimensions matches text-embedding-3-small
+    metadata    JSONB,              -- Supports hybrid filtering (e.g., source, date)
+    created_at  TIMESTAMP DEFAULT NOW()
 );
 
--- Create index for fast similarity search
-CREATE INDEX ON documents 
-USING ivfflat (embedding vector_cosine_ops) 
+-- Step 3: Create an IVFFlat index for fast approximate nearest-neighbor search
+-- 'lists' controls the number of cluster centroids (tune based on dataset size)
+CREATE INDEX ON documents
+USING ivfflat (embedding vector_cosine_ops)
 WITH (lists = 100);
+
+-- Optional: HNSW index for higher recall at slightly more memory cost
+-- CREATE INDEX ON documents USING hnsw (embedding vector_cosine_ops);
 ```
+
+### Index Selection Guide
+
+| Index Type | Recall | Speed | Memory | Best For |
+|:---|:---|:---|:---|:---|
+| **IVFFlat** | ~95% | Very Fast | Low | Datasets < 1M rows |
+| **HNSW** | ~99% | Fast | Higher | High-precision requirements |
+| No Index (exact) | 100% | Slow | Minimal | Dev / < 100k rows |
 
 ### Why PostgreSQL + pgvector?
-*   **ACID Compliant & Reliable**: Keeps your relational data and vectors in the same robust database.
-*   **Supports Metadata (JSONB)**: Perfect for hybrid search (Vector + SQL filtering).
-*   **Powerful Indexing**: Supports IVFFlat and HNSW for rapid similarity lookups.
 
-## 🛡️ Agent Security & Authorization
+*   **ACID Compliance:** Your document store and relational data live in one reliable, transactional database — no eventual consistency issues.
+*   **Hybrid Search:** Combine vector similarity with SQL `WHERE` clauses. Example: "Find semantically similar documents, but only from the last 30 days, tagged as `compliance`".
+*   **Familiar Tooling:** Use standard PostgreSQL tooling (pgAdmin, psql, pg_dump) for backups, monitoring, and schema migrations.
+*   **No Additional Infrastructure:** Eliminates the need for a separate dedicated vector database (Pinecone, Weaviate, etc.) reducing cost and ops overhead.
 
-Securing AI agents is essential to ensure they act safely, reliably, and in alignment with user goals and ethical boundaries. This repository implements **Agent Security Best Practices**:
+---
 
-*   **Input Validation:** Sanitization of all user inputs before vectorization.
-*   **Privilege Limitation (RBAC):** Applies the Principle of Least Privilege. The LLM agent is restricted to specific actions (`read`, `execute`) and blocked from destructive actions (`delete`, `write`) unless explicitly elevated.
-*   **Audit & Logging:** Every tool call decision made by the agent passes through an audit trace.
-*   **Fail-Safe Mechanisms:** If the agent hallucinates a tool call it shouldn't execute, the authorization layer dynamically blocks the execution and returns an error to the LLM.
+## 📁 Repository Structure
 
-```go
-// Example: Agent tries to execute 'web_search'
-role := "agent"
-action := "execute" // Approved!
-
-// Example: Agent maliciously tries to execute 'delete_record'
-action := "delete" // Denied! Fallback triggered.
+```text
+Go-RAG-System/
+│
+├── main.go                 # Application entry point — wires all components
+├── security.go             # Agent Security & Authorization (RBAC checks)
+├── observability.go        # TraceID generation, structured logging, metrics
+├── evaluation.go           # Response quality & safety scoring
+├── agent_logic.go          # Reflection & Self-Correction loop
+├── react_planner.go        # ReAct (Reason + Act) Planning Framework
+├── human_in_the_loop.go    # HITL Approval Gates
+├── memory.go               # Short-term & Long-term Agent Memory
+├── single_agent.go         # Perceive → Reason → Act → Learn loop
+├── db_query_agent.go       # NL2SQL — Natural Language to SQL
+├── web_search_agent.go     # Autonomous Web Research (SerpAPI)
+├── ml_models.go            # Dynamic AI Model Selection Engine
+├── multi_agent.go          # Multi-Agent Coordinator (Planner + Executor)
+├── tool_caller.go          # Tool & External API Calling Interface
+├── rest_api.go             # REST API CRUD + Bulk Operations mapping
+├── goal_based_agent.go     # BFS Goal-Based Pathfinding Agent
+├── concurrency.go          # Goroutine-based Concurrent Task Execution
+├── custom_errors.go        # AgentHallucinationError & structured exceptions
+│
+├── go.mod                  # Go module definition
+├── go.sum                  # Dependency lock file
+├── .env.example            # Environment variable template
+├── .github/
+│   └── workflows/
+│       └── daily-contribution-sync.yml  # Automated daily maintenance
+└── README.md
 ```
 
-## 📊 Advanced Agentic Capabilities Implemented
-This blueprint doesn't just stop at generating text. It incorporates deep **Agentic AI** principles for autonomous safety and learning:
+---
 
-1.  **Agent Observability (Trace, Log, Metrics):** Every action generates a pseudo-UUID `TraceID` and pushes structured logs across execution boundaries to ensure deep accountability.
-2.  **Agent Evaluation:** At the end of execution, the agent evaluates its `Goal Achievement`, `Task Success Rate`, `Efficiency`, and `Safety Score` to produce an automated performance review.
-3.  **Reflection & Self-Correction:** Instead of failing silently, the agent analyzes *why* an action failed (e.g., "Irrelevant Results"), learns from the mistake ("Hallucination risk detected"), and dynamically self-corrects its strategy ("Use metadata filters") in a self-healing loop.
-4.  **Agent Planning (Task Decomposition):** High-level user goals are autonomously broken down into executable, step-by-step sub-tasks before execution begins.
-5.  **ReAct Framework (Reason + Act):** The agent actively "thinks" about its situation, decides on a tool to use, observes the output of that tool, and then reasons again in a continuous loop until the goal is met.
-6.  **Human-in-the-loop (HITL):** For critical or destructive tasks, the AI pauses execution and defers to a human operator for final Approval, Modification, or Rejection.
-7.  **Single Agent Workflow:** A formalized continuous loop of `Perceive -> Reason -> Act -> Learn` that allows the agent to autonomously interact with its environment.
-8.  **Database Query Agent:** An NL2SQL (Natural Language to SQL) agent that translates human intent into optimized SQL queries, executes them securely, and synthesizes the results.
-9.  **Web Search Agent:** Autonomously executes HTTP calls to search engine APIs, extracts JSON payloads, analyzes the links/snippets, and synthesizes real-time knowledge.
-10. **Dynamic AI Model Selection:** An engine that programmatically selects the correct algorithmic foundation (NLP vs Neural Networks vs Random Forest) depending on the semantic requirements of the task.
-11. **Agent Memory (Short-Term & Long-Term):** Implements ephemeral memory for active session context and persistent key-value storage for lifelong learning and preferences.
-12. **Tool & API Calling:** Exposes an interface where the LLM can generate structured JSON to invoke real-world tools (e.g., Calculators, Weather APIs) extending its capabilities beyond static training data.
-13. **Multi-Agent System (Planner & Executor):** Demonstrates decentralized collaboration where a "Planning Agent" decomposes a goal and delegates the execution to a specialized "Executor Agent".
-14. **REST API Mapping:** Formalizes interactions using standard HTTP protocols (CRUD + Bulk Operations) mapped to the backend PostgreSQL database.
-15. **Goal-Based Agent:** Algorithms that allow the agent to evaluate multiple paths and formulate the most optimal sequential strategy to reach an end state (BFS/Pathfinding).
-16. **Concurrent Task Execution:** Leverages native Go routines and WaitGroups to allow agents to process multiple parallel tools/APIs without blocking, avoiding deadlocks.
-17. **Custom Exceptions & Validation:** Deep structural enforcement where `AgentHallucinationError` custom exceptions are thrown and caught to guarantee safety bounds.
+## 🤖 The 17-Pattern Agentic Architecture
+
+This repository implements every major pattern from modern agentic AI research and engineering:
+
+### Core Intelligence Patterns
+
+**1. Agent Observability (`observability.go`)**
+Every agent execution generates a pseudo-UUID `TraceID`. Structured log events are emitted at every stage — tool call attempts, LLM responses, evaluation scores — providing a complete, reproducible audit trail.
+
+**2. Agent Evaluation (`evaluation.go`)**
+After each response, scores are computed across four dimensions:
+- Goal Achievement: Did the agent actually answer the question?
+- Task Success Rate: How many sub-steps completed without error?
+- Efficiency: Response latency relative to complexity.
+- Safety Score: Did the response stay within ethical bounds?
+
+**3. Reflection & Self-Correction (`agent_logic.go`)**
+When evaluation fails, instead of raising an error, the agent enters a self-correction loop. It analyzes *why* it failed (e.g., "Irrelevant search results", "Hallucination detected"), updates its strategy ("Add metadata filter", "Use a different tool"), and retries.
+
+```go
+// The agent catches its own failure and corrects:
+// Attempt 1: Failed — "Irrelevant results"
+// Correction: "Narrow query to last 7 days using metadata filter"
+// Attempt 2: Success
+```
+
+### Planning & Reasoning Patterns
+
+**4. ReAct Framework (`react_planner.go`)**
+The agent actively reasons in a loop: **Thought → Action → Observation → Thought**. Each iteration brings it closer to the goal by incorporating real-world feedback from tool executions.
+
+**5. Agent Planning / Task Decomposition (`react_planner.go`)**
+High-level user goals (e.g., "Prepare a Q1 compliance report") are autonomously broken into executable sub-tasks before any action is taken, preventing cascading failures from ambiguous prompts.
+
+**6. Goal-Based Agent (`goal_based_agent.go`)**
+Uses BFS (Breadth-First Search) pathfinding to evaluate multiple action paths and select the most optimal sequence to reach a desired end state — critical for multi-step workflows.
+
+### Safety & Control Patterns
+
+**7. Agent Security & Authorization (`security.go`)**
+Enforces **Principle of Least Privilege** at the agent layer. Every tool call is checked against an RBAC table before execution.
+
+```go
+// Role: "agent" → Action: "execute" → APPROVED ✅
+// Role: "agent" → Action: "delete"  → DENIED ❌ (fallback triggered)
+```
+
+**8. Human-in-the-Loop (`human_in_the_loop.go`)**
+For destructive or irreversible actions, the agent halts and routes to a human approval gate. In production, this triggers a webhook notification to an admin interface and awaits a response.
+
+### Data & Tool Patterns
+
+**9. Agent Memory (`memory.go`)**
+Dual-layer memory:
+- **Short-Term:** An in-memory key-value store cleared at session end.
+- **Long-Term:** PostgreSQL-backed persistent memory for cross-session recall.
+
+**10. Tool Calling (`tool_caller.go`)**
+Exposes a structured JSON interface enabling the LLM to invoke real-world tools — Calculators, Weather APIs, Custom REST endpoints — extending its capabilities far beyond its static training data.
+
+**11. Database Query Agent / NL2SQL (`db_query_agent.go`)**
+Translates natural language questions into optimized SQL queries, executes them against the PostgreSQL store, and synthesizes a human-readable response from the result set.
+
+**12. Web Search Agent (`web_search_agent.go`)**
+Connects to SerpAPI to retrieve real-time web results. Parses the JSON payload, extracts the top results, and synthesizes a grounded, citation-backed response.
+
+### Scalability Patterns
+
+**13. Single Agent Workflow (`single_agent.go`)**
+A formalized `Perceive → Reason → Act → Learn` loop — the fundamental building block for all agentic systems.
+
+**14. Multi-Agent System (`multi_agent.go`)**
+A **Planner Agent** decomposes a complex goal and dispatches sub-tasks to specialized **Executor Agents** running concurrently via goroutines.
+
+**15. Concurrent Task Execution (`concurrency.go`)**
+Leverages native Go goroutines and `sync.WaitGroup` to execute multiple agent tasks in parallel — no blocking, no deadlocks.
+
+**16. Dynamic AI Model Selection (`ml_models.go`)**
+Selects the appropriate algorithmic approach (NLP, Neural Network, Linear Regression) at runtime based on the semantic classification of the task.
+
+**17. Custom Exceptions (`custom_errors.go`)**
+Implements `AgentHallucinationError` and structured exception types that carry rich context (trace ID, tool name, expected vs. actual values) enabling precise error recovery.
 
 ---
 
 ## 🚀 Getting Started
 
 ### Prerequisites
-*   [Go 1.22+](https://go.dev/)
-*   PostgreSQL Database with `pgvector`
-*   OpenAI API Key
+
+| Dependency | Version | Notes |
+|:---|:---|:---|
+| Go | 1.22+ | [Install from go.dev](https://go.dev/dl/) |
+| PostgreSQL | 15+ | With `pgvector` extension installed |
+| OpenAI API Key | — | Billing account required |
 
 ### Installation
 
-1.  **Clone the repository:**
-    ```bash
-    git clone https://github.com/Raphasha27/Go-RAG-System.git
-    cd Go-RAG-System
-    ```
+**1. Clone the repository:**
+```bash
+git clone https://github.com/Raphasha27/Go-RAG-System.git
+cd Go-RAG-System
+```
 
-2.  **Install Dependencies:**
-    ```bash
-    go mod tidy
-    ```
+**2. Install Go dependencies:**
+```bash
+go mod tidy
+```
 
-3.  **Environment Variables:**
-    Copy `.env.example` to `.env` and fill in your credentials:
-    ```bash
-    DATABASE_URL="postgres://user:password@localhost:5432/ragdb?sslmode=disable"
-    OPENAI_API_KEY="sk-your-openai-key"
-    ```
+**3. Configure environment variables:**
+```bash
+cp .env.example .env
+```
 
-4.  **Run the Application:**
-    ```bash
-    go run main.go
-    ```
+Edit `.env`:
+```env
+DATABASE_URL="postgres://user:password@localhost:5432/ragdb?sslmode=disable"
+OPENAI_API_KEY="sk-your-openai-api-key"
+```
+
+**4. Initialize the database:**
+```bash
+psql -U your_user -d ragdb -f schema.sql
+```
+
+**5. Run the application:**
+```bash
+go run main.go
+```
+
+Expected output:
+```
+[TraceID: a1b2c3d4] RAG System Starting...
+[TraceID: a1b2c3d4] Connecting to PostgreSQL...
+[TraceID: a1b2c3d4] Embedding query: "What is our refund policy?" (1536 dims)
+[TraceID: a1b2c3d4] Retrieved 3 context chunks from pgvector
+[TraceID: a1b2c3d4] 🔧 Tool Call Triggered: web_search
+[TraceID: a1b2c3d4] Agent Evaluation: Quality=95 Safety=100 ✅ PASSED
+```
 
 ---
 
-## 🧠 Benefits of RAG
+## 🛡️ Security Best Practices
 
-*   **Reduces Hallucinations:** Answers are grounded in actual retrieved documents.
-*   **Uses up-to-date information:** Instantly reflects changes in your database.
-*   **Domain-Specific:** Understands your private corporate data.
-*   **Cost-Effective:** Eliminates the need for expensive, continuous model fine-tuning.
-*   **Explainable:** You can trace exactly which document chunks were used to generate the answer.
+The system implements the following security controls at the agent layer:
 
-## 💼 Use Cases
-*   Chat with your specific documents / PDFs
-*   Enterprise Knowledge Base search
-*   Customer Support Bots
-*   Research Assistants
-*   Automated Data Analysis & Reporting
+| Control | Implementation | File |
+|:---|:---|:---|
+| Privilege Limitation | RBAC — agents cannot execute `delete` or `write` | `security.go` |
+| Audit Logging | Every tool call logged with TraceID | `observability.go` |
+| Hallucination Detection | `AgentHallucinationError` thrown + caught | `custom_errors.go` |
+| Human Override Gate | High-risk actions paused for approval | `human_in_the_loop.go` |
+| Input Validation | All queries validated before vectorization | `main.go` |
+
+---
+
+## 🧪 Testing
+
+```bash
+# Run all tests
+go test ./...
+
+# Run with verbose output
+go test ./... -v
+
+# Run with race condition detector (recommended before production)
+go test ./... -race
+```
+
+---
+
+## 🔧 Troubleshooting
+
+### Issue: `pgvector` extension not found
+**Fix:** Ensure the extension is installed in your PostgreSQL instance:
+```sql
+CREATE EXTENSION IF NOT EXISTS vector;
+-- If this fails, install via: sudo apt install postgresql-15-pgvector
+```
+
+### Issue: Goroutine leak detected under `-race`
+**Cause:** A concurrent task may be holding a resource without releasing it.
+**Fix:** Review `concurrency.go`. Ensure all goroutines are wrapped with a `defer wg.Done()` call.
+
+### Issue: OpenAI 429 Rate Limit Error
+**Fix:** Add exponential backoff retry logic around the `client.chat.completions.create()` call. The current implementation will return `nil` on failure — a future PR will add automatic retry.
+
+### Issue: IVFFlat index returning poor results
+**Cause:** The `lists` parameter may be too small for your dataset size.
+**Fix:** PostgreSQL recommends `lists = sqrt(rows)`. For 1M rows, use `lists = 1000`.
+
+---
+
+## 🗺️ Roadmap
+
+- [ ] Add a REST HTTP server (using `net/http` or `gin`) to expose as a microservice
+- [ ] Implement HNSW index as a configuration option alongside IVFFlat
+- [ ] Add streaming response support (Server-Sent Events)
+- [ ] Integrate Weaviate as an alternative vector backend
+- [ ] Build a CLI tool for document ingestion and index management
+- [ ] Add Prometheus metrics endpoint for production monitoring
+
+---
+
+## 💼 Real-World Use Cases
+
+*   **Chat with your documents / PDFs:** Index company policy documents, technical manuals, or legal contracts and query them in plain English.
+*   **Enterprise Knowledge Base:** Build a Confluence / SharePoint replacement that actually understands what you're asking.
+*   **Customer Support Bots:** Ground AI responses in your actual product documentation to eliminate hallucinations.
+*   **Research Assistants:** Index academic papers and ask cross-paper synthesis questions.
+*   **Automated Compliance Reporting:** Query regulatory documents and generate gap analysis reports.
+
+---
+
+## 🧠 Why RAG Over Fine-Tuning?
+
+| Aspect | Fine-Tuning | RAG |
+|:---|:---|:---|
+| **Cost** | Thousands of dollars per run | One-time embedding cost |
+| **Freshness** | Stale after training cutoff | Real-time via DB updates |
+| **Explainability** | Black box | Traceable to source chunks |
+| **Domain Adaptation** | Requires large labeled dataset | Works with any documents |
+| **Deployment** | New model version per update | Index update only |
+
+---
+
+## 🤝 Contributing
+
+1.  Fork the repository.
+2.  Create a feature branch: `git checkout -b feat/your-feature`
+3.  Commit your changes with a conventional commit message: `git commit -m 'feat: add HNSW index support'`
+4.  Push to the branch: `git push origin feat/your-feature`
+5.  Open a Pull Request describing the change and its motivation.
+
+---
+
+## 📜 License
+
+MIT License. See [LICENSE](LICENSE) for details.
+
+---
+
+*Part of the **Future AGI** ecosystem — built by **Koketso Raphasha (Raphasha27)**.*
+*Kirov Dynamics Technology | Building the Infrastructure of Autonomous Systems.*
