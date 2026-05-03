@@ -1,0 +1,99 @@
+# 🧠 Go-RAG-System (Retrieval Augmented Generation)
+
+Welcome to the **Go-RAG-System**. This repository contains a complete architecture for building a Retrieval-Augmented Generation (RAG) system utilizing **Golang**, **PostgreSQL (with pgvector)**, **OpenAI Embeddings**, and **Tool Calling**.
+
+This architecture combines the reasoning power of Large Language Models (LLMs) with real-time data retrieval from your own knowledge base to generate accurate, highly contextual, and actionable responses without fine-tuning.
+
+---
+
+## 🏗️ System Architecture
+
+The workflow consists of 6 core phases:
+
+1.  **User Query:** The user asks a question or issues a command.
+2.  **Query Embedding:** The system converts the text query into a high-dimensional vector using an embedding model (e.g., `text-embedding-3-small`).
+3.  **Vector DB Retrieval:** A similarity search (Cosine Distance / HNSW) is executed against a PostgreSQL database running the `pgvector` extension to fetch the `Top K` most relevant document chunks.
+4.  **Augmentation:** The retrieved textual context is merged with the original query to construct an enriched prompt.
+5.  **LLM Generation:** The language model (e.g., GPT-4o) processes the augmented prompt to formulate a precise answer.
+6.  **Tool Calling (If needed):** If the LLM determines it needs real-time, external data (e.g., Web Search, DB Lookup, API calls), it triggers a tool execution and feeds the result back into the generation loop.
+
+---
+
+## 🗄️ Database Schema (PostgreSQL + pgvector)
+
+Before running the application, ensure your PostgreSQL instance has `pgvector` installed and execute the following SQL:
+
+```sql
+-- Enable pgvector extension
+CREATE EXTENSION IF NOT EXISTS vector;
+
+-- Create documents table to store chunks and embeddings
+CREATE TABLE documents (
+    id SERIAL PRIMARY KEY,
+    content TEXT NOT NULL,
+    embedding VECTOR(1536), -- 1536 dimensions for text-embedding-3-small
+    metadata JSONB,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Create index for fast similarity search
+CREATE INDEX ON documents 
+USING ivfflat (embedding vector_cosine_ops) 
+WITH (lists = 100);
+```
+
+### Why PostgreSQL + pgvector?
+*   **ACID Compliant & Reliable**: Keeps your relational data and vectors in the same robust database.
+*   **Supports Metadata (JSONB)**: Perfect for hybrid search (Vector + SQL filtering).
+*   **Powerful Indexing**: Supports IVFFlat and HNSW for rapid similarity lookups.
+
+---
+
+## 🚀 Getting Started
+
+### Prerequisites
+*   [Go 1.22+](https://go.dev/)
+*   PostgreSQL Database with `pgvector`
+*   OpenAI API Key
+
+### Installation
+
+1.  **Clone the repository:**
+    ```bash
+    git clone https://github.com/Raphasha27/Go-RAG-System.git
+    cd Go-RAG-System
+    ```
+
+2.  **Install Dependencies:**
+    ```bash
+    go mod tidy
+    ```
+
+3.  **Environment Variables:**
+    Copy `.env.example` to `.env` and fill in your credentials:
+    ```bash
+    DATABASE_URL="postgres://user:password@localhost:5432/ragdb?sslmode=disable"
+    OPENAI_API_KEY="sk-your-openai-key"
+    ```
+
+4.  **Run the Application:**
+    ```bash
+    go run main.go
+    ```
+
+---
+
+## 🧠 Benefits of RAG
+
+*   **Reduces Hallucinations:** Answers are grounded in actual retrieved documents.
+*   **Uses up-to-date information:** Instantly reflects changes in your database.
+*   **Domain-Specific:** Understands your private corporate data.
+*   **Cost-Effective:** Eliminates the need for expensive, continuous model fine-tuning.
+*   **Explainable:** You can trace exactly which document chunks were used to generate the answer.
+
+## 💼 Use Cases
+*   Chat with your specific documents / PDFs
+*   Enterprise Knowledge Base search
+*   Customer Support Bots
+*   Research Assistants
+*   Automated Data Analysis & Reporting
