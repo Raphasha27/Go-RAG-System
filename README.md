@@ -74,6 +74,17 @@ This blueprint doesn't just stop at generating text. It incorporates deep **Agen
 4.  **Agent Planning (Task Decomposition):** High-level user goals are autonomously broken down into executable, step-by-step sub-tasks before execution begins.
 5.  **ReAct Framework (Reason + Act):** The agent actively "thinks" about its situation, decides on a tool to use, observes the output of that tool, and then reasons again in a continuous loop until the goal is met.
 6.  **Human-in-the-loop (HITL):** For critical or destructive tasks, the AI pauses execution and defers to a human operator for final Approval, Modification, or Rejection.
+7.  **Single Agent Workflow:** A formalized continuous loop of `Perceive -> Reason -> Act -> Learn` that allows the agent to autonomously interact with its environment.
+8.  **Database Query Agent:** An NL2SQL (Natural Language to SQL) agent that translates human intent into optimized SQL queries, executes them securely, and synthesizes the results.
+9.  **Web Search Agent:** Autonomously executes HTTP calls to search engine APIs, extracts JSON payloads, analyzes the links/snippets, and synthesizes real-time knowledge.
+10. **Dynamic AI Model Selection:** An engine that programmatically selects the correct algorithmic foundation (NLP vs Neural Networks vs Random Forest) depending on the semantic requirements of the task.
+11. **Agent Memory (Short-Term & Long-Term):** Implements ephemeral memory for active session context and persistent key-value storage for lifelong learning and preferences.
+12. **Tool & API Calling:** Exposes an interface where the LLM can generate structured JSON to invoke real-world tools (e.g., Calculators, Weather APIs) extending its capabilities beyond static training data.
+13. **Multi-Agent System (Planner & Executor):** Demonstrates decentralized collaboration where a "Planning Agent" decomposes a goal and delegates the execution to a specialized "Executor Agent".
+14. **REST API Mapping:** Formalizes interactions using standard HTTP protocols (CRUD + Bulk Operations) mapped to the backend PostgreSQL database.
+15. **Goal-Based Agent:** Algorithms that allow the agent to evaluate multiple paths and formulate the most optimal sequential strategy to reach an end state (BFS/Pathfinding).
+16. **Concurrent Task Execution:** Leverages native Go routines and WaitGroups to allow agents to process multiple parallel tools/APIs without blocking, avoiding deadlocks.
+17. **Custom Exceptions & Validation:** Deep structural enforcement where `AgentHallucinationError` custom exceptions are thrown and caught to guarantee safety bounds.
 
 ---
 

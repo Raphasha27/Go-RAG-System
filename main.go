@@ -243,5 +243,39 @@ func main() {
 	// 10. Trigger Human-in-the-loop (HITL) Execution
 	HumanApproval(traceID, "Execute SQL query to clear 'temp_embeddings' table")
 
+	// 11. Trigger Single Agent Workflow
+	SingleAgentLoop(traceID, "CodePathIndia is an amazing community for coders.")
+
+	// 12. Trigger Database Query Agent
+	DatabaseQueryAgent(traceID, db, "Show me a preview of 2 documents from the database.")
+
+	// 13. Trigger Web Search Agent
+	WebSearchAgent(traceID, "Latest advancements in Agentic AI architectures")
+
+	// 14. Trigger AI Model Selection Engine
+	SelectAIModel(traceID, "text_analysis")
+	SelectAIModel(traceID, "complex_pattern_recognition")
+
+	// 15. Trigger Agent Memory
+	DemonstrateMemory(traceID)
+
+	// 16. Trigger Tool Calling / API Execution
+	DemonstrateToolCalling(traceID)
+
+	// 17. Trigger Multi-Agent System
+	DemonstrateMultiAgentSystem(traceID)
+
+	// 18. Trigger REST API
+	DemonstrateRESTAPI(traceID)
+
+	// 19. Trigger Goal-Based Agent (Pathfinding)
+	GoalBasedAgentExecution(traceID)
+
+	// 20. Trigger Concurrency in Agents
+	DemonstrateConcurrency(traceID)
+
+	// 21. Trigger Custom Agent Exceptions
+	DemonstrateCustomErrors(traceID)
+
 	LogEvent(traceID, "INFO", "Agent run entirely completed.")
 }
