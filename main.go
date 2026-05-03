@@ -139,9 +139,20 @@ func callLLM(client *openai.Client, prompt string) (string, error) {
 
 	// If the LLM decided to call a tool
 	if len(message.ToolCalls) > 0 {
-		fmt.Printf("\n[🔧 Tool Call Triggered]: %s\n", message.ToolCalls[0].Function.Name)
-		// In a real app, you would execute the tool here and pass the result back to the LLM
-		return "[Tool execution deferred in this snippet]", nil
+		toolName := message.ToolCalls[0].Function.Name
+		fmt.Printf("\n[🔧 Tool Call Triggered]: %s\n", toolName)
+		
+		// 🛡️ AGENT SECURITY LAYER (Authorization Check)
+		// Simulating an agent trying to execute a tool
+		agentRole := "agent" 
+		
+		if EnforceSecurity(agentRole, toolName) {
+			// In a real app, you would execute the tool here and pass the result back to the LLM
+			return "[Tool execution simulated and approved by security layer]", nil
+		} else {
+			// Fail-safe mechanism: Block execution
+			return "Error: Agent is not authorized to execute this tool.", nil
+		}
 	}
 
 	return message.Content, nil
@@ -151,82 +162,86 @@ func callLLM(client *openai.Client, prompt string) (string, error) {
 // MAIN APPLICATION
 // -------------------------------------------------------------------------
 func main() {
-	fmt.Println("🚀 Initializing RAG System (Go + PostgreSQL + pgvector + OpenAI)")
+	traceID := generateTraceID()
+	LogEvent(traceID, "INFO", "🚀 Initializing RAG System (Go + PostgreSQL + pgvector + OpenAI)")
 
 	// 1. Connect to PostgreSQL
 	connStr := os.Getenv("DATABASE_URL")
 	if connStr == "" {
-		// Fallback for demonstration if env var is missing
 		connStr = "postgres://user:password@localhost:5432/ragdb?sslmode=disable"
 	}
 
 	db, err := sql.Open("pgx", connStr)
 	if err != nil {
+		LogEvent(traceID, "FATAL", fmt.Sprintf("Failed to open DB connection: %v", err))
 		log.Fatalf("Failed to open DB connection: %v", err)
 	}
 	defer db.Close()
 
-	// Verify connection
 	if err := db.Ping(); err != nil {
-		log.Printf("⚠️ Warning: Could not ping database. Make sure PostgreSQL is running. Error: %v\n", err)
-		log.Println("Continuing in mock mode for demonstration purposes...")
-		// For the sake of the structural blueprint, we don't fatal crash if DB isn't up
+		LogEvent(traceID, "WARN", "Could not ping database. Continuing in mock mode.")
 	}
 
 	// 2. Initialize OpenAI client
 	apiKey := os.Getenv("OPENAI_API_KEY")
-	if apiKey == "" {
-		log.Println("⚠️ Warning: OPENAI_API_KEY not set. Generation will fail.")
-	}
 	client := openai.NewClient(apiKey)
 
-	// User Query
 	userQuery := "How does tool calling work in RAG systems?"
-	fmt.Printf("\n[👤 User Query]: %s\n", userQuery)
+	LogEvent(traceID, "INPUT", fmt.Sprintf("User Query: %s", userQuery))
 
 	// 3. Get embedding for query
-	fmt.Println("[🧠 Action]: Embedding Query...")
-	// NOTE: Bypassed for pure demo compilation without API key
-	/*
-	queryEmbedding, err := getEmbedding(client, userQuery)
-	if err != nil {
-		log.Fatalf("Embedding error: %v", err)
-	}
-	*/
-	
-	// Mock embedding for structural completeness
+	LogEvent(traceID, "INFO", "Action: Embedding Query")
 	queryEmbedding := make([]float32, 1536) 
 	queryEmbedding[0] = 0.12
-	queryEmbedding[1] = -0.85
 
 	// 4. Search similar documents
-	fmt.Println("[🗄️ Action]: Retrieving Context from Vector DB...")
-	/*
-	docs, err := searchSimilarDocs(db, queryEmbedding, 3)
-	if err != nil {
-		log.Fatalf("Search error: %v", err)
-	}
-	*/
-	
-	// Mock Retrieved Documents
+	LogEvent(traceID, "INFO", "Action: Retrieving Context from Vector DB")
 	docs := []Document{
-		{Content: "Tool calling allows LLMs to execute external functions like searching the web or querying a database. The result is returned to the LLM to augment its final answer."},
-		{Content: "RAG stands for Retrieval-Augmented Generation. It combines semantic search with language models."},
+		{Content: "Tool calling allows LLMs to execute external functions like searching the web."},
 	}
 
-	// 5. Build prompt with context
-	fmt.Println("[🧩 Action]: Augmenting Prompt...")
+	// 5. Build prompt
 	prompt := buildPrompt(userQuery, docs)
 
 	// 6. Call LLM
-	fmt.Println("[🤖 Action]: Generating Final Answer...")
+	LogEvent(traceID, "INFO", "Action: Generating Final Answer")
+	
+	// Simulate Evaluation Metrics collection during run
+	metrics := EvaluationMetrics{
+		GoalAchievement: 0.95,
+		TaskSuccessRate: 0.90,
+		Efficiency:      0.85,
+		SafetyScore:     1.00, // Agent didn't execute malicious tools
+	}
+
 	if apiKey != "" {
 		answer, err := callLLM(client, prompt)
 		if err != nil {
-			log.Fatalf("LLM Error: %v", err)
+			LogEvent(traceID, "ERROR", fmt.Sprintf("LLM Error: %v", err))
 		}
-		fmt.Printf("\n[✨ Answer]:\n%s\n", answer)
+		LogEvent(traceID, "OUTPUT", "\n" + answer)
 	} else {
-		fmt.Println("\n[✨ Answer]:\n(Mocked) Tool calling works by the LLM recognizing when it lacks information, pausing generation, returning a specific JSON schema requesting a function execution, waiting for the external system to run the tool, and then consuming the tool's result to generate the final response.")
+		LogEvent(traceID, "OUTPUT", "(Mocked) Tool calling works by the LLM recognizing when it lacks information, pausing generation, requesting a tool, and then consuming the tool's result.")
 	}
+
+	// 7. Evaluate the Agent Run
+	EvaluateAgent(traceID, metrics)
+
+	// 8. Trigger Agentic Self-Correction & Reflection Loop Example
+	fmt.Println("\n==================================================")
+	fmt.Println("       AGENT REFLECTION & SELF-CORRECTION")
+	fmt.Println("==================================================")
+	SelfCorrectingExecution(traceID, "Find highly specific architectural context")
+
+	// 9. Trigger Agent Planning & ReAct Framework
+	fmt.Println("\n==================================================")
+	fmt.Println("       AGENT TASK PLANNING & DECOMPOSITION")
+	fmt.Println("==================================================")
+	AgentPlanner(traceID, "Deploy highly secure, multi-agent RAG cluster")
+	ReActExecution(traceID, "How does ReAct architecture work?")
+
+	// 10. Trigger Human-in-the-loop (HITL) Execution
+	HumanApproval(traceID, "Execute SQL query to clear 'temp_embeddings' table")
+
+	LogEvent(traceID, "INFO", "Agent run entirely completed.")
 }

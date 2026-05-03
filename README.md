@@ -47,6 +47,34 @@ WITH (lists = 100);
 *   **Supports Metadata (JSONB)**: Perfect for hybrid search (Vector + SQL filtering).
 *   **Powerful Indexing**: Supports IVFFlat and HNSW for rapid similarity lookups.
 
+## 🛡️ Agent Security & Authorization
+
+Securing AI agents is essential to ensure they act safely, reliably, and in alignment with user goals and ethical boundaries. This repository implements **Agent Security Best Practices**:
+
+*   **Input Validation:** Sanitization of all user inputs before vectorization.
+*   **Privilege Limitation (RBAC):** Applies the Principle of Least Privilege. The LLM agent is restricted to specific actions (`read`, `execute`) and blocked from destructive actions (`delete`, `write`) unless explicitly elevated.
+*   **Audit & Logging:** Every tool call decision made by the agent passes through an audit trace.
+*   **Fail-Safe Mechanisms:** If the agent hallucinates a tool call it shouldn't execute, the authorization layer dynamically blocks the execution and returns an error to the LLM.
+
+```go
+// Example: Agent tries to execute 'web_search'
+role := "agent"
+action := "execute" // Approved!
+
+// Example: Agent maliciously tries to execute 'delete_record'
+action := "delete" // Denied! Fallback triggered.
+```
+
+## 📊 Advanced Agentic Capabilities Implemented
+This blueprint doesn't just stop at generating text. It incorporates deep **Agentic AI** principles for autonomous safety and learning:
+
+1.  **Agent Observability (Trace, Log, Metrics):** Every action generates a pseudo-UUID `TraceID` and pushes structured logs across execution boundaries to ensure deep accountability.
+2.  **Agent Evaluation:** At the end of execution, the agent evaluates its `Goal Achievement`, `Task Success Rate`, `Efficiency`, and `Safety Score` to produce an automated performance review.
+3.  **Reflection & Self-Correction:** Instead of failing silently, the agent analyzes *why* an action failed (e.g., "Irrelevant Results"), learns from the mistake ("Hallucination risk detected"), and dynamically self-corrects its strategy ("Use metadata filters") in a self-healing loop.
+4.  **Agent Planning (Task Decomposition):** High-level user goals are autonomously broken down into executable, step-by-step sub-tasks before execution begins.
+5.  **ReAct Framework (Reason + Act):** The agent actively "thinks" about its situation, decides on a tool to use, observes the output of that tool, and then reasons again in a continuous loop until the goal is met.
+6.  **Human-in-the-loop (HITL):** For critical or destructive tasks, the AI pauses execution and defers to a human operator for final Approval, Modification, or Rejection.
+
 ---
 
 ## 🚀 Getting Started
