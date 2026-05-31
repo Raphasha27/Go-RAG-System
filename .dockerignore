@@ -1,0 +1,15 @@
+.git/
+.gitignore
+.gitattributes
+.github/
+*.md
+LICENSE
+.env
+.env.example
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+__pycache__/
+*.pyc
+node_modules/
