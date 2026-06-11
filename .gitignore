@@ -57,3 +57,13 @@ target/
 Thumbs.db
 *.log
 *.pid
+
+# Security: auto-added entries
+.env.*
+!.env.example
+!.env.sample
+desktop.ini
+credentials.json
+serviceAccountKey.json
+*.pem
+*.key
