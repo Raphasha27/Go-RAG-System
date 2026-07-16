@@ -1,5 +1,5 @@
 # 🧠 Go-RAG-System
-### Production-Grade Retrieval Augmented Generation Architecture in Golang
+### reference implementation Retrieval Augmented Generation Architecture in Golang
 
 [![Go](https://img.shields.io/badge/Go-1.22+-00ADD8?logo=go&logoColor=white)](https://go.dev)
 [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-pgvector-336791?logo=postgresql&logoColor=white)](https://github.com/pgvector/pgvector)
@@ -413,3 +413,4 @@ Part of the **Kirov Dynamics Technology** ecosystem:
 
 *Part of the **Future AGI** ecosystem — built by **Koketso Raphasha (Raphasha27)**.
 *Kirov Dynamics Technology | Building the Infrastructure of Autonomous Systems.*
+
