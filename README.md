@@ -1,5 +1,7 @@
 # 🤖 Go-RAG-System
 
+[![CI](https://github.com/Raphasha27/Go-RAG-System/actions/workflows/ci.yml/badge.svg)](https://github.com/Raphasha27/Go-RAG-System/actions/workflows/ci.yml)
+
 <div align="center">
 
 ![Go](https://img.shields.io/badge/Go-1.22+-00ADD8?style=for-the-badge&logo=go&logoColor=white)
